@@ -1,0 +1,30 @@
+# config.yaml
+llm:
+  provider: siliconflow
+  api_key: ""
+  base_url: "https://api.siliconflow.cn/v1"
+  model: "Qwen/Qwen2.5-7B-Instruct"
+  temperature: 0.7
+  max_tokens: 2000
+
+tools:
+  open_app:
+    enabled: true
+    description: "打开本地应用程序或网页"
+    supported_apps:
+      - chrome
+      - edge
+
+  file_manager:
+    enabled: true
+    root_dir: "workspace"
+    max_file_size: 5242880  # 5MB
+
+  db_query:
+    enabled: true
+    db_path: "dm_data/indicators.db"
+
+logging:
+  level: DEBUG
+  file: logs/assistant.log
+  format: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg"
