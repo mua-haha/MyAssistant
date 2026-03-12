@@ -1,9 +1,29 @@
 # config.yaml
 llm:
-  provider: siliconflow
-  api_key: ""
-  base_url: "https://api.siliconflow.cn/v1"
+  # 当前使用的 provider 和模型
+  provider: "siliconflow"
   model: "Qwen/Qwen2.5-7B-Instruct"
+  
+  # 可用的 providers 配置
+  providers:
+    siliconflow:
+      enabled: true
+      base_url: "https://api.siliconflow.cn/v1"
+      api_key: "${SILICONFLOW_API_KEY}"
+      models:
+        - "Qwen/Qwen2.5-7B-Instruct"
+        - "Pro/deepseek-ai/DeepSeek-V3.2"
+    
+    ollama:
+      enabled: true
+      base_url: "http://localhost:11434"
+      api_key: ""
+      models:
+        - "gemma3:12b"
+        - "deepseek-r1:14b"
+        - "qwen3.5:9b"
+  
+  # 通用参数
   temperature: 0.7
   max_tokens: 2000
 
@@ -28,3 +48,6 @@ logging:
   level: DEBUG
   file: logs/assistant.log
   format: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg"
+  console:
+    enabled: true
+    level: INFO

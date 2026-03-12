@@ -2,7 +2,7 @@ import json
 import re
 import yaml
 from typing import Dict, Any, Optional
-from src.model.llm_client import LLMClient
+from src.model.base import BaseLLMClient
 from src.logging.setup import get_logger
 
 logger = get_logger("ParamService")
@@ -11,7 +11,7 @@ logger = get_logger("ParamService")
 class ParamService:
     """参数生成服务 - LLM2：根据用户输入和 Tool 上下文生成参数"""
 
-    def __init__(self, llm_client: LLMClient, prompts: Dict[str, Any]):
+    def __init__(self, llm_client: BaseLLMClient, prompts: Dict[str, Any]):
         self.llm_client = llm_client
         self.prompts = prompts
 
@@ -99,6 +99,11 @@ params: {"参数名": "参数值"}"""
 
     def _parse_response(self, response: str, tool: Any) -> Dict[str, Any]:
         """解析 LLM 响应，提取参数"""
+        if "<think>" in response:
+            match = re.search(r"</think>\s*(.+)", response, re.DOTALL)
+            if match:
+                response = match.group(1).strip()
+        
         match = re.search(r"params:\s*(\{.*?\})", response, re.DOTALL)
         if match:
             try:

@@ -45,18 +45,49 @@ class Config:
         env_key = os.environ.get("SILICONFLOW_API_KEY", "")
         if env_key:
             return env_key
-        config_key = self.get("llm.api_key", "")
+        provider = self.get("llm.provider", "ollama")
+        config_key = self.get(f"llm.providers.{provider}.api_key", "")
+        if config_key and config_key.startswith("${") and config_key.endswith("}"):
+            var_name = config_key[2:-1]
+            return os.environ.get(var_name, "")
         return config_key
 
     def get_llm_config(self) -> Dict[str, Any]:
-        """获取 LLM 配置"""
+        """获取 LLM 配置（包含 provider、model、providers 配置）"""
+        providers = self.get("llm.providers", {})
         return {
-            "base_url": self.get("llm.base_url", "https://api.siliconflow.cn/v1"),
-            "model": self.get("llm.model", "Qwen/Qwen2.5-7B-Instruct"),
+            "provider": self.get("llm.provider", "ollama"),
+            "model": self.get("llm.model", "qwen2.5:7b"),
+            "providers": providers,
             "temperature": self.get("llm.temperature", 0.7),
             "max_tokens": self.get("llm.max_tokens", 2000),
-            "api_key": self.get_llm_api_key(),
         }
+
+    def get_current_llm_config(self) -> Dict[str, Any]:
+        """获取当前使用的 LLM 完整配置（供 LLMFactory 使用）"""
+        return self.get_llm_config()
+
+    def set_llm_model(self, provider: str, model: str) -> bool:
+        """
+        设置当前使用的 LLM 模型
+
+        Args:
+            provider: provider 名称
+            model: 模型名称
+
+        Returns:
+            是否设置成功
+        """
+        providers = self.get("llm.providers", {})
+        provider_config = providers.get(provider, {})
+        available_models = provider_config.get("models", [])
+
+        if model not in available_models:
+            return False
+
+        self._config["llm"]["provider"] = provider
+        self._config["llm"]["model"] = model
+        return True
 
     def get_tools_config(self) -> Dict[str, Any]:
         """获取工具配置"""

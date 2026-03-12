@@ -43,37 +43,50 @@ class SLF4JFormatter(logging.Formatter):
 def setup_logging(
     log_level: str = "INFO",
     log_file: str = "logs/assistant.log",
-    log_format: Optional[str] = None,  # 改为 Optional，内部使用默认格式
+    log_format: Optional[str] = None,
+    console_enabled: bool = True,
+    console_level: str = "INFO",
+    file_level: Optional[str] = None,
 ) -> logging.Logger:
     """
-    配置日志系统，同时输出到控制台和文件
+    配置日志系统
+    
+    Args:
+        log_level: 全局日志级别（默认 INFO）
+        log_file: 日志文件路径
+        log_format: 日志格式
+        console_enabled: 是否输出到控制台（默认 True）
+        console_level: 控制台日志级别（默认 INFO）
+        file_level: 文件日志级别（默认与 log_level 相同）
     """
     log_dir = os.path.dirname(log_file)
     if log_dir and not os.path.exists(log_dir):
         os.makedirs(log_dir, exist_ok=True)
 
-    level = getattr(logging, log_level.upper(), logging.INFO)
-
+    global_level = getattr(logging, log_level.upper(), logging.INFO)
     root_logger = logging.getLogger()
-    root_logger.setLevel(level)
+    root_logger.setLevel(logging.DEBUG)
 
     if root_logger.handlers:
         root_logger.handlers.clear()
 
     formatter = SLF4JFormatter(log_format)
 
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_handler.setFormatter(formatter)
-    root_logger.addHandler(console_handler)
+    if console_enabled:
+        console_level_val = getattr(logging, console_level.upper(), logging.INFO)
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(console_level_val)
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
 
+    file_level_val = getattr(logging, (file_level or log_level).upper(), logging.INFO)
     file_handler = RotatingFileHandler(
         log_file,
         maxBytes=10 * 1024 * 1024,
         backupCount=5,
         encoding="utf-8",
     )
-    file_handler.setLevel(level)
+    file_handler.setLevel(file_level_val)
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
 

@@ -1,7 +1,7 @@
 import json
 import re
 from typing import Dict, Any, List, Tuple, Optional
-from src.model.llm_client import LLMClient
+from src.model.base import BaseLLMClient
 from src.logging.setup import get_logger
 
 logger = get_logger("IntentService")
@@ -10,7 +10,7 @@ logger = get_logger("IntentService")
 class IntentService:
     """意图识别服务 - LLM1：识别用户意图，选择使用哪个 Tool"""
 
-    def __init__(self, llm_client: LLMClient, tools: List[Any], prompts: Dict[str, Any]):
+    def __init__(self, llm_client: BaseLLMClient, tools: List[Any], prompts: Dict[str, Any]):
         self.llm_client = llm_client
         self.tools = tools
         self.prompts = prompts
@@ -101,6 +101,12 @@ tool: 工具名称
         """
         response_lower = response.lower()
         
+        if "<think>" in response_lower:
+            match = re.search(r"</think>\s*(.+)", response, re.DOTALL)
+            if match:
+                response = match.group(1).strip()
+                response_lower = response.lower()
+        
         if "chitchat" in response_lower or "闲聊" in response:
             return ("chitchat", None)
         
@@ -120,3 +126,92 @@ tool: 工具名称
             return ("tool", self.tools[0].name)
         
         return ("chitchat", None)
+
+    def generate_plan(self, user_input: str, session_history: Optional[str] = None) -> Tuple[str, List[Dict[str, Any]]]:
+        """
+        生成行动计划
+
+        Args:
+            user_input: 用户输入
+            session_history: 会话历史
+
+        Returns:
+            (intent, plan): 意图类型和行动计划列表
+        """
+        logger.info(f"开始生成行动计划，用户输入: {user_input}")
+
+        tool_list = self._build_tool_list()
+        
+        system_prompt = self._build_plan_system_prompt(tool_list)
+        user_prompt = self._build_user_prompt(user_input, session_history)
+
+        logger.info("调用 LLM 生成行动计划...")
+        response = self.llm_client.chat_with_system_and_user(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
+
+        logger.debug(f"LLM 原始响应: {response}")
+
+        intent, plan = self._parse_plan_response(response)
+        logger.info(f"识别结果: intent={intent}, plan={plan}")
+
+        return intent, plan
+
+    def _build_plan_system_prompt(self, tool_list: str) -> str:
+        """构建生成计划用的系统提示"""
+        return f"""你是一个任务规划助手。
+你的任务是根据用户需求，分析需要执行的步骤，并生成行动计划。
+
+可用工具：
+{tool_list}
+
+【重要规则】
+- 每个步骤必须使用上述工具之一
+- 如果用户只需要闲聊，不需要执行任何工具，输出 "intent: chitchat"
+- 如果需要执行工具，输出行动计划
+- 最多生成10个步骤
+- 步骤要具体、明确
+
+输出格式：
+如果是闲聊：
+intent: chitchat
+
+如果需要执行工具：
+intent: tool
+plan:
+1. [步骤序号]. [工具名称] - [步骤描述]
+2. [步骤序号]. [工具名称] - [步骤描述]
+...
+
+请生成行动计划："""
+
+    def _parse_plan_response(self, response: str) -> tuple:
+        """解析 LLM 响应，提取意图和行动计划"""
+        response_lower = response.lower()
+        
+        if "<think>" in response_lower:
+            match = re.search(r"</think>\s*(.+)", response, re.DOTALL)
+            if match:
+                response = match.group(1).strip()
+                response_lower = response.lower()
+        
+        if "chitchat" in response_lower or "闲聊" in response:
+            return ("chitchat", [])
+        
+        plan = []
+        lines = response.split('\n')
+        for line in lines:
+            match = re.match(r"\d+\.\s*(\w+)\s*-\s*(.+)", line.strip())
+            if match:
+                tool_name = match.group(1).strip()
+                description = match.group(2).strip()
+                plan.append({
+                    "tool": tool_name,
+                    "description": description,
+                })
+        
+        if plan:
+            return ("tool", plan)
+        
+        return ("chitchat", [])

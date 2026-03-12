@@ -1,5 +1,6 @@
+import re
 from typing import Dict, Any, Optional
-from src.model.llm_client import LLMClient
+from src.model.base import BaseLLMClient
 from src.logging.setup import get_logger
 
 logger = get_logger("ResponseService")
@@ -8,7 +9,7 @@ logger = get_logger("ResponseService")
 class ResponseService:
     """回复生成服务 - LLM3：根据工具执行结果生成自然语言回复"""
 
-    def __init__(self, llm_client: LLMClient, prompts: Dict[str, Any]):
+    def __init__(self, llm_client: BaseLLMClient, prompts: Dict[str, Any]):
         self.llm_client = llm_client
         self.prompts = prompts
 
@@ -34,6 +35,11 @@ class ResponseService:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
         )
+
+        if "<think>" in response:
+            match = re.search(r"</think>\s*(.+)", response, re.DOTALL)
+            if match:
+                response = match.group(1).strip()
 
         logger.info(f"最终回复: {response}")
         return response
